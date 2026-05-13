@@ -19,10 +19,11 @@
         </a>
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">菜单</button>
         <div class="nav-links" id="nav-links">
+          <a href="#study">今日学习</a>
+          <a href="#summary">学习总结</a>
           <a href="#ielts">雅思词汇</a>
-          <a href="#daily">日常对话</a>
-          <a href="#business">商务英语</a>
-          <a href="#summary">每日总结</a>
+          <a href="#daily">生活对话</a>
+          <a href="#business">商务对话</a>
           <a href="#reading">英文资讯</a>
         </div>
         <div class="auth-panel" id="auth-panel"></div>
@@ -38,8 +39,8 @@
             覆盖雅思词汇、生活对话、商务沟通和行业资讯阅读。系统会在本地记录你的登录状态、已学单词、练习次数与每日学习总结。
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#ielts">开始今日学习</a>
-            <a class="button ghost" href="#reading">查看英文资讯入口</a>
+            <a class="button primary" href="#study">开始今日学习</a>
+            <a class="button ghost" href="#reading">查看英文资讯</a>
           </div>
         </div>
         <div class="hero-card" aria-label="今日学习概览">
@@ -50,70 +51,82 @@
         </div>
       </section>
 
-      <section class="section grid-2" id="ielts">
-        <div>
-          <p class="eyebrow">IELTS Vocabulary</p>
-          <h2>雅思词汇查看、背诵与记忆统计</h2>
-          <p class="section-intro">
-            每个单词包含中文释义、例句和考试场景标签。点击“标记已学”后会保存到浏览器本地，刷新后仍可统计已学与未学词汇。
-          </p>
-          <div class="stats" id="vocab-stats"></div>
-        </div>
-        <form class="study-card reflection-form" id="daily-goal-form">
-          <label for="daily-goal">今日背诵目标</label>
-          <div class="inline-form">
-            <input id="daily-goal" name="daily-goal" type="number" min="1" max="50" value="8" />
-            <button class="button primary" type="submit">保存目标</button>
-          </div>
-          <small id="goal-feedback">建议初中级学习者每天 8–15 个新词。</small>
-        </form>
-        <div class="vocab-grid" id="vocab-list"></div>
-      </section>
-
-      <section class="section" id="daily">
-        <div class="section-heading">
+      <section class="section module-shell learning-shell" id="study" aria-labelledby="study-title">
+        <div class="module-heading">
           <div>
-            <p class="eyebrow">Daily Conversation</p>
-            <h2>日常生活全场景对话单元</h2>
+            <p class="eyebrow">Learning Hub</p>
+            <h2 id="study-title">今日学习</h2>
           </div>
-          <p>从问路、点餐、租房到看医生，学习自然表达并用浏览器语音能力进行发音跟读。</p>
+          <p>每日总结、雅思词汇、生活场景和商务场景统一放在这里，方便先看进度，再安排练习。</p>
         </div>
-        <div class="scenario-grid" id="daily-scenarios"></div>
-      </section>
 
-      <section class="section" id="business">
-        <div class="section-heading">
+        <section class="module-panel summary-panel grid-2" id="summary" aria-labelledby="summary-title">
           <div>
-            <p class="eyebrow">Business English</p>
-            <h2>商务英语全场景对话单元</h2>
+            <p class="eyebrow">Daily Review</p>
+            <h3 id="summary-title">学习总结</h3>
+            <p class="section-intro">记录今天学了什么、还需要复习什么。登录后可按日期保存总结，方便持续追踪。</p>
+            <div class="today-report" id="today-report"></div>
           </div>
-          <p>覆盖会议、邮件、谈判、汇报、客户跟进等商务沟通任务，帮助学习者建立职场英语语感。</p>
-        </div>
-        <div class="scenario-grid" id="business-scenarios"></div>
+          <form class="study-card reflection-form" id="summary-form">
+            <label for="summary-text">今日总结</label>
+            <textarea id="summary-text" rows="6" placeholder="例如：今天背了 8 个雅思词汇，练习了点餐和会议开场表达……"></textarea>
+            <button class="button primary" type="submit">保存总结</button>
+            <small id="summary-feedback"></small>
+          </form>
+        </section>
+
+        <section class="module-panel vocab-panel" id="ielts" aria-labelledby="ielts-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">IELTS Words</p>
+              <h3 id="ielts-title">雅思词汇</h3>
+              <p class="section-intro">
+                看释义、听发音、读例句并标记已学。顶部展示总量、已学量和完成率，方便规划学习节奏。
+              </p>
+            </div>
+            <form class="study-card reflection-form goal-card" id="daily-goal-form">
+              <label for="daily-goal">今日背诵目标</label>
+              <div class="inline-form nowrap">
+                <input id="daily-goal" name="daily-goal" type="number" min="1" max="50" value="8" />
+                <button class="button primary" type="submit">保存</button>
+              </div>
+              <small id="goal-feedback">建议初中级学习者每天 8–15 个新词。</small>
+            </form>
+          </div>
+          <div class="stats vocab-stats" id="vocab-stats"></div>
+          <div class="vocab-list" id="vocab-list"></div>
+        </section>
+
+        <section class="module-panel" id="daily" aria-labelledby="daily-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Daily Talk</p>
+              <h3 id="daily-title">生活对话</h3>
+            </div>
+            <p>按“场景—目标—句型—操作”结构练习，点餐、问路、看医生、租房都能快速定位。</p>
+          </div>
+          <div class="scenario-board" id="daily-scenarios"></div>
+        </section>
+
+        <section class="module-panel" id="business" aria-labelledby="business-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Business Talk</p>
+              <h3 id="business-title">商务对话</h3>
+            </div>
+            <p>按职场任务整理会议、邮件、客户确认和谈判表达，便于直接套用到工作沟通。</p>
+          </div>
+          <div class="scenario-board" id="business-scenarios"></div>
+        </section>
       </section>
 
-      <section class="section grid-2" id="summary">
-        <div>
-          <p class="eyebrow">Daily Review</p>
-          <h2>每日学习总结</h2>
-          <p class="section-intro">记录今天学了什么、还需要复习什么。登录后可按日期保存总结，方便持续追踪。</p>
-          <div class="today-report" id="today-report"></div>
-        </div>
-        <form class="study-card reflection-form" id="summary-form">
-          <label for="summary-text">今日总结</label>
-          <textarea id="summary-text" rows="6" placeholder="例如：今天背了 8 个雅思词汇，练习了点餐和会议开场表达……"></textarea>
-          <button class="button primary" type="submit">保存总结</button>
-          <small id="summary-feedback"></small>
-        </form>
-      </section>
-
-      <section class="section" id="reading">
-        <div class="section-heading">
+      <section class="section module-shell reading-shell" id="reading" aria-labelledby="reading-title">
+        <div class="module-heading">
           <div>
-            <p class="eyebrow">English Reading</p>
-            <h2>英文资讯阅读与信息获取</h2>
+            <p class="eyebrow">English News</p>
+            <h2 id="reading-title">英文资讯</h2>
           </div>
-          <p>聚合你指定的行业英文资讯入口，并提供阅读任务模板：标题预测、关键词摘录、三句摘要。</p>
+          <p>每个资讯来源展示 10 条今日排序靠前的阅读条目，并用中文概括核心信息，便于先浏览再精读。</p>
         </div>
         <div class="reading-grid" id="reading-sources"></div>
       </section>

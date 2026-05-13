@@ -1,37 +1,109 @@
 const STORAGE_KEY = "lingualift-state-v1";
 
 const ieltsWords = [
-  { word: "allocate", ipa: "/ˈæləkeɪt/", meaning: "分配；拨出", tag: "Writing Task 2", example: "The city should allocate more funding to public transport." },
-  { word: "beneficial", ipa: "/ˌbenɪˈfɪʃl/", meaning: "有益的", tag: "Speaking Part 3", example: "Regular exercise is beneficial for both physical and mental health." },
-  { word: "coherent", ipa: "/kəʊˈhɪərənt/", meaning: "连贯的；一致的", tag: "Writing", example: "A coherent essay has clear topic sentences and logical transitions." },
-  { word: "diverse", ipa: "/daɪˈvɜːs/", meaning: "多样的", tag: "Education", example: "A diverse classroom helps students understand different cultures." },
-  { word: "efficient", ipa: "/ɪˈfɪʃnt/", meaning: "高效的", tag: "Technology", example: "Online booking makes the process more efficient for passengers." },
-  { word: "evidence", ipa: "/ˈevɪdəns/", meaning: "证据", tag: "Academic", example: "The report provides evidence that air quality has improved." },
-  { word: "implement", ipa: "/ˈɪmplɪment/", meaning: "实施；执行", tag: "Policy", example: "Governments can implement stricter rules to reduce waste." },
-  { word: "significant", ipa: "/sɪɡˈnɪfɪkənt/", meaning: "显著的；重要的", tag: "Charts", example: "There was a significant increase in online sales after 2020." },
-  { word: "sustainable", ipa: "/səˈsteɪnəbl/", meaning: "可持续的", tag: "Environment", example: "Many cities are investing in sustainable energy solutions." },
-  { word: "valid", ipa: "/ˈvælɪd/", meaning: "有效的；合理的", tag: "Argument", example: "That is a valid point, but it needs stronger supporting examples." }
+  { word: "allocate", ipa: "/ˈæləkeɪt/", meaning: "分配；拨出", tag: "写作任务 2", example: "The city should allocate more funding to public transport." },
+  { word: "beneficial", ipa: "/ˌbenɪˈfɪʃl/", meaning: "有益的", tag: "口语 Part 3", example: "Regular exercise is beneficial for both physical and mental health." },
+  { word: "coherent", ipa: "/kəʊˈhɪərənt/", meaning: "连贯的；一致的", tag: "写作结构", example: "A coherent essay has clear topic sentences and logical transitions." },
+  { word: "diverse", ipa: "/daɪˈvɜːs/", meaning: "多样的", tag: "教育话题", example: "A diverse classroom helps students understand different cultures." },
+  { word: "efficient", ipa: "/ɪˈfɪʃnt/", meaning: "高效的", tag: "科技话题", example: "Online booking makes the process more efficient for passengers." },
+  { word: "evidence", ipa: "/ˈevɪdəns/", meaning: "证据", tag: "学术论证", example: "The report provides evidence that air quality has improved." },
+  { word: "implement", ipa: "/ˈɪmplɪment/", meaning: "实施；执行", tag: "政策话题", example: "Governments can implement stricter rules to reduce waste." },
+  { word: "significant", ipa: "/sɪɡˈnɪfɪkənt/", meaning: "显著的；重要的", tag: "图表描述", example: "There was a significant increase in online sales after 2020." },
+  { word: "sustainable", ipa: "/səˈsteɪnəbl/", meaning: "可持续的", tag: "环境话题", example: "Many cities are investing in sustainable energy solutions." },
+  { word: "valid", ipa: "/ˈvælɪd/", meaning: "有效的；合理的", tag: "观点论证", example: "That is a valid point, but it needs stronger supporting examples." }
 ];
 
 const dailyScenarios = [
-  { title: "咖啡店点单", level: "Beginner", lines: ["Could I have a latte, please?", "Would you like it hot or iced?", "Iced, please. Could you make it less sweet?"], focus: "礼貌请求、冷热饮选择、少糖表达" },
-  { title: "问路与交通", level: "Beginner", lines: ["Excuse me, how can I get to the subway station?", "Go straight for two blocks and turn left.", "Is it within walking distance?"], focus: "方向、距离、公共交通" },
-  { title: "看医生", level: "Intermediate", lines: ["I have had a sore throat since yesterday.", "Do you have a fever or a cough?", "A mild cough, but no fever."], focus: "症状描述、时间表达" },
-  { title: "租房沟通", level: "Intermediate", lines: ["Is the apartment furnished?", "The rent includes water, but electricity is separate.", "Could I schedule a viewing this weekend?"], focus: "房屋设施、费用、预约" }
+  { title: "点餐", level: "Beginner", goal: "礼貌下单、选择冷热、提出少糖等偏好。", lines: ["Could I have a latte, please?", "Would you like it hot or iced?", "Iced, please. Could you make it less sweet?"] },
+  { title: "问路", level: "Beginner", goal: "询问路线、理解方向、确认步行距离。", lines: ["Excuse me, how can I get to the subway station?", "Go straight for two blocks and turn left.", "Is it within walking distance?"] },
+  { title: "看医生", level: "Intermediate", goal: "描述症状、说明持续时间、回答医生追问。", lines: ["I have had a sore throat since yesterday.", "Do you have a fever or a cough?", "A mild cough, but no fever."] },
+  { title: "租房", level: "Intermediate", goal: "确认家具、费用范围和看房时间。", lines: ["Is the apartment furnished?", "The rent includes water, but electricity is separate.", "Could I schedule a viewing this weekend?"] }
 ];
 
 const businessScenarios = [
-  { title: "会议开场", level: "Beginner", lines: ["Thanks for joining today's meeting.", "Let's start with a quick project update.", "Could you share the latest timeline?"], focus: "会议流程、请求更新" },
-  { title: "商务邮件跟进", level: "Intermediate", lines: ["I am writing to follow up on our proposal.", "Please let me know if you have any questions.", "We look forward to your feedback."], focus: "邮件目的、礼貌收尾" },
-  { title: "客户需求确认", level: "Intermediate", lines: ["Could you clarify your main priority for this quarter?", "Our team can prepare two options by Friday.", "That sounds reasonable. Let's review them next week."], focus: "需求澄清、交付承诺" },
-  { title: "谈判与让步", level: "Intermediate", lines: ["We can offer a discount for a longer contract.", "The price is still above our budget.", "If we adjust the scope, we may find a workable solution."], focus: "价格谈判、条件让步" }
+  { title: "开会", level: "Beginner", goal: "主持开场、推进议程、请求项目更新。", lines: ["Thanks for joining today's meeting.", "Let's start with a quick project update.", "Could you share the latest timeline?"] },
+  { title: "邮件跟进", level: "Intermediate", goal: "说明来信目的、礼貌催进展、等待反馈。", lines: ["I am writing to follow up on our proposal.", "Please let me know if you have any questions.", "We look forward to your feedback."] },
+  { title: "客户确认", level: "Intermediate", goal: "澄清优先级、承诺交付、约定复盘时间。", lines: ["Could you clarify your main priority for this quarter?", "Our team can prepare two options by Friday.", "That sounds reasonable. Let's review them next week."] },
+  { title: "商务谈判", level: "Intermediate", goal: "讨论折扣、表达预算压力、提出可行让步。", lines: ["We can offer a discount for a longer contract.", "The price is still above our budget.", "If we adjust the scope, we may find a workable solution."] }
 ];
 
 const readingSources = [
-  { name: "GamesIndustry.biz News", url: "https://www.gamesindustry.biz/news", area: "游戏行业", task: "记录一条公司、平台或发行趋势，并用 3 句话复述新闻影响。" },
-  { name: "TechCrunch Startups", url: "https://techcrunch.com/category/startups/", area: "科技创业", task: "摘录融资、产品或商业模式关键词，判断该创业公司的目标用户。" },
-  { name: "TechCrunch Apps", url: "https://techcrunch.com/category/apps/", area: "应用产品", task: "总结新功能解决了什么用户问题，并写出 5 个产品英语词汇。" },
-  { name: "SCMP Tech", url: "https://www.scmp.com/tech", area: "中国科技大厂", task: "关注中国科技公司的战略、监管或 AI 动态，完成中英双语摘要。" }
+  {
+    name: "GamesIndustry.biz News",
+    url: "https://www.gamesindustry.biz/news",
+    feedUrl: "https://www.gamesindustry.biz/feed",
+    area: "游戏行业",
+    task: "关注公司、平台、发行与商业模式变化，用 3 句话复述影响。",
+    items: [
+      ["发行策略", "观察新游上线窗口、首发平台和订阅服务安排，判断发行方如何扩大触达。"],
+      ["工作室动态", "留意收购、裁员或新团队成立，归纳对人才流动与项目排期的影响。"],
+      ["主机平台", "比较 PlayStation、Xbox、Nintendo 或 PC 平台政策变化，提炼平台竞争点。"],
+      ["移动游戏", "关注内购、广告变现和地区增长，记录一个 monetization 相关表达。"],
+      ["独立游戏", "总结小团队如何通过发行商、展会或社区获得曝光。"],
+      ["监管合规", "阅读隐私、年龄分级或概率披露相关信息，提炼合规关键词。"],
+      ["财报表现", "记录收入、利润、用户数等指标变化，用英文描述上升或下降。"],
+      ["电竞赛事", "关注赛事合作、赞助或观众数据，判断商业价值来源。"],
+      ["技术工具", "了解引擎、AI 工具或云服务如何影响研发效率。"],
+      ["市场趋势", "综合当天热门报道，写出一个对游戏行业未来 6 个月的预测。"]
+    ]
+  },
+  {
+    name: "TechCrunch Startups",
+    url: "https://techcrunch.com/category/startups/",
+    feedUrl: "https://techcrunch.com/category/startups/feed/",
+    area: "科技创业",
+    task: "摘录融资、产品或商业模式关键词，判断创业公司的目标用户。",
+    items: [
+      ["融资新闻", "记录融资轮次、金额和领投方，判断资本看好的细分赛道。"],
+      ["AI 创业", "概括产品使用的 AI 能力，说明它替代或增强了哪个工作流程。"],
+      ["企业软件", "关注面向 B2B 的效率工具，提炼 buyer、workflow、ROI 等词汇。"],
+      ["消费应用", "判断产品如何获取用户，以及留存机制是否清晰。"],
+      ["金融科技", "总结支付、风控或财富管理创新，并记录 compliance 相关表达。"],
+      ["气候科技", "提炼减排、能源或供应链优化方向，说明商业可持续性。"],
+      ["医疗健康", "关注数据、诊断或远程护理，区分 patient 与 provider 视角。"],
+      ["出海公司", "记录目标地区、渠道策略和本地化挑战。"],
+      ["创始人观点", "摘录一句关于市场、团队或产品判断的英文表达并复述。"],
+      ["失败复盘", "总结公司关闭或转型原因，学习 runway、pivot、traction 等词。"]
+    ]
+  },
+  {
+    name: "TechCrunch Apps",
+    url: "https://techcrunch.com/category/apps/",
+    feedUrl: "https://techcrunch.com/category/apps/feed/",
+    area: "应用产品",
+    task: "总结新功能解决了什么用户问题，并写出 5 个产品英语词汇。",
+    items: [
+      ["社交应用", "关注推荐、创作者工具或私信功能，判断对用户互动的影响。"],
+      ["生产力工具", "提炼新功能如何减少步骤、自动化任务或提升协作。"],
+      ["AI 功能", "记录 app 如何整合聊天、生成内容或个性化推荐。"],
+      ["订阅定价", "比较免费、会员和高级功能边界，学习 pricing tier 表达。"],
+      ["应用商店", "关注审核、分发和抽成政策变化，归纳平台规则影响。"],
+      ["隐私安全", "总结权限、数据加密或儿童保护相关更新。"],
+      ["短视频与内容", "观察内容分发、创作者变现和社区治理变化。"],
+      ["地图出行", "提炼路线、预订或本地服务功能背后的用户需求。"],
+      ["健康应用", "记录习惯追踪、睡眠、运动或心理健康产品表达。"],
+      ["产品复盘", "选择一条报道，用 problem-solution-impact 结构写三句摘要。"]
+    ]
+  },
+  {
+    name: "SCMP Tech",
+    url: "https://www.scmp.com/tech",
+    feedUrl: "https://www.scmp.com/rss/36/feed",
+    area: "中国科技大厂",
+    task: "关注中国科技公司的战略、监管或 AI 动态，完成中英双语摘要。",
+    items: [
+      ["AI 大模型", "记录模型发布、开源策略或应用落地，比较中英文关键词。"],
+      ["电商平台", "关注价格战、跨境业务或商家工具，判断增长压力。"],
+      ["芯片供应链", "提炼出口管制、国产替代或制造能力相关表达。"],
+      ["智能汽车", "总结自动驾驶、车载软件或车企合作的最新动向。"],
+      ["云计算", "关注企业客户、算力需求和 AI 基础设施投入。"],
+      ["短视频平台", "记录内容治理、直播电商或海外市场变化。"],
+      ["监管政策", "归纳数据安全、反垄断或平台治理对公司的影响。"],
+      ["硬件新品", "概括手机、可穿戴或消费电子新品的差异化卖点。"],
+      ["资本市场", "关注上市、回购或估值变化，学习 market sentiment 表达。"],
+      ["全球竞争", "比较中国科技公司与海外对手在产品、市场和政策上的差异。"]
+    ]
+  }
 ];
 
 const defaultState = {
@@ -60,6 +132,10 @@ function saveState() {
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function todayLabel() {
+  return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric" }).format(new Date());
 }
 
 function speak(text) {
@@ -98,28 +174,33 @@ function renderAuth() {
 
 function renderVocab() {
   const stats = document.querySelector("#vocab-stats");
-  const learned = state.learnedWords.length;
-  const unlearned = ieltsWords.length - learned;
+  const learned = state.learnedWords.filter((word) => ieltsWords.some((item) => item.word === word)).length;
+  const total = ieltsWords.length;
+  const unlearned = total - learned;
+  const completion = total === 0 ? 0 : Math.round((learned / total) * 100);
   stats.innerHTML = `
+    <div><strong>${total}</strong><span>词库总量</span></div>
     <div><strong>${learned}</strong><span>已学单词</span></div>
     <div><strong>${unlearned}</strong><span>未学单词</span></div>
-    <div><strong>${state.dailyGoal}</strong><span>每日目标</span></div>
+    <div><strong>${completion}%</strong><span>完成率</span></div>
   `;
 
   document.querySelector("#vocab-list").innerHTML = ieltsWords.map((item) => {
     const isLearned = state.learnedWords.includes(item.word);
     return `
-      <article class="word-card ${isLearned ? "learned" : ""}">
-        <div class="word-card-top">
+      <article class="word-row ${isLearned ? "learned" : ""}">
+        <div class="word-main">
           <span class="tag">${item.tag}</span>
-          <button class="speak-button" data-speak="${item.word}" type="button">🔊</button>
+          <div class="word-title">
+            <h4>${item.word}</h4>
+            <button class="speak-button" data-speak="${item.word}" type="button" aria-label="朗读 ${item.word}">🔊</button>
+          </div>
+          <p>${item.ipa}</p>
         </div>
-        <h3>${item.word}</h3>
-        <p class="ipa">${item.ipa}</p>
         <p>${item.meaning}</p>
-        <blockquote>${item.example}</blockquote>
+        <blockquote class="word-example">${item.example}</blockquote>
         <button class="button full ${isLearned ? "success" : "primary"}" data-word="${item.word}" type="button">
-          ${isLearned ? "已学 · 点击取消" : "标记已学"}
+          ${isLearned ? "已学 · 取消" : "标记已学"}
         </button>
       </article>
     `;
@@ -143,35 +224,95 @@ function renderVocab() {
   });
 }
 
-function scenarioCard(item) {
+function scenarioRow(item) {
   const sentence = item.lines.join(" ");
   return `
-    <article class="scenario-card">
-      <div class="scenario-meta"><span>${item.level}</span><span>${item.focus}</span></div>
-      <h3>${item.title}</h3>
-      <ol>${item.lines.map((line) => `<li>${line}</li>`).join("")}</ol>
-      <button class="button primary full" data-scenario="${sentence}" type="button">播放并跟读</button>
+    <article class="scenario-row">
+      <div>
+        <span class="scenario-level">${item.level}</span>
+        <h4>${item.title}</h4>
+      </div>
+      <p class="scenario-goal">${item.goal}</p>
+      <ol class="scenario-lines">${item.lines.map((line) => `<li>${line}</li>`).join("")}</ol>
+      <button class="button primary full scenario-action" data-scenario="${sentence}" type="button">播放跟读</button>
     </article>
   `;
 }
 
 function renderScenarios() {
-  document.querySelector("#daily-scenarios").innerHTML = dailyScenarios.map(scenarioCard).join("");
-  document.querySelector("#business-scenarios").innerHTML = businessScenarios.map(scenarioCard).join("");
+  document.querySelector("#daily-scenarios").innerHTML = dailyScenarios.map(scenarioRow).join("");
+  document.querySelector("#business-scenarios").innerHTML = businessScenarios.map(scenarioRow).join("");
   document.querySelectorAll("[data-scenario]").forEach((button) => {
     button.addEventListener("click", () => speak(button.dataset.scenario));
   });
 }
 
+function stripHtml(text = "") {
+  const template = document.createElement("template");
+  template.innerHTML = text;
+  return (template.content.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function summarize(text) {
+  const cleanText = stripHtml(text);
+  if (!cleanText) return "源站未提供摘要，请打开原文完成三句摘要。";
+  return cleanText.length > 88 ? `${cleanText.slice(0, 88)}…` : cleanText;
+}
+
+function newsItemMarkup([title, summary], index) {
+  return `
+    <li>
+      <span class="news-rank">${String(index + 1).padStart(2, "0")}</span>
+      <span><strong>${title}</strong><span>${summary}</span></span>
+    </li>
+  `;
+}
+
 function renderReadingSources() {
-  document.querySelector("#reading-sources").innerHTML = readingSources.map((source) => `
+  document.querySelector("#reading-sources").innerHTML = readingSources.map((source, sourceIndex) => `
     <article class="reading-card">
-      <span class="tag">${source.area}</span>
-      <h3>${source.name}</h3>
-      <p>${source.task}</p>
-      <a class="button ghost full" href="${source.url}" target="_blank" rel="noreferrer">打开资讯源</a>
+      <div class="reading-card-header">
+        <div>
+          <span class="tag">${source.area}</span>
+          <h3>${source.name}</h3>
+          <p>${todayLabel()} Top 10 · ${source.task}</p>
+          <small class="feed-status" id="feed-status-${sourceIndex}">正在尝试读取源站今日/最新排序；失败时展示学习清单。</small>
+        </div>
+        <a class="button ghost" href="${source.url}" target="_blank" rel="noreferrer">打开源站</a>
+      </div>
+      <ol class="news-list" id="news-list-${sourceIndex}">
+        ${source.items.map(newsItemMarkup).join("")}
+      </ol>
     </article>
   `).join("");
+
+  hydrateReadingFeeds();
+}
+
+async function hydrateReadingFeeds() {
+  await Promise.allSettled(readingSources.map(async (source, sourceIndex) => {
+    const status = document.querySelector(`#feed-status-${sourceIndex}`);
+    const list = document.querySelector(`#news-list-${sourceIndex}`);
+    if (!source.feedUrl || !status || !list) return;
+
+    const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.feedUrl)}&count=10`;
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("Feed request failed");
+
+    const payload = await response.json();
+    const liveItems = (payload.items || []).slice(0, 10).map((item) => [item.title, summarize(item.description || item.content)]);
+    if (liveItems.length === 0) throw new Error("Feed returned no items");
+
+    list.innerHTML = liveItems.map(newsItemMarkup).join("");
+    status.textContent = `已按源站 RSS 最新顺序更新 ${liveItems.length} 条；如需确认当日排名，请打开源站。`;
+  })).then((results) => {
+    results.forEach((result, sourceIndex) => {
+      if (result.status === "rejected") {
+        const status = document.querySelector(`#feed-status-${sourceIndex}`);
+        if (status) status.textContent = "源站实时读取受限，当前展示 10 条今日阅读清单；点击源站核对实时排序。";
+      }
+    });
+  });
 }
 
 function completedTasks() {
@@ -191,9 +332,11 @@ function renderProgress() {
 
 function renderTodayReport() {
   const todaySummary = state.summaries[todayKey()] || "尚未填写今日总结。";
+  const learned = state.learnedWords.filter((word) => ieltsWords.some((item) => item.word === word)).length;
+  const completion = Math.round((learned / ieltsWords.length) * 100);
   document.querySelector("#today-report").innerHTML = `
-    <div><strong>${state.learnedWords.length}</strong><span>累计已学雅思词汇</span></div>
-    <div><strong>${state.practiceCount}</strong><span>累计发音练习次数</span></div>
+    <div><strong>${learned}/${ieltsWords.length}</strong><span>雅思词汇进度</span></div>
+    <div><strong>${completion}%</strong><span>词汇完成率</span></div>
     <div><strong>${completedTasks()}/3</strong><span>今日任务完成</span></div>
     <p>${todaySummary}</p>
   `;
