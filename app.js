@@ -6,11 +6,10 @@ const IELTS_VOCABULARY_API_URL = "./data/ielts-vocabulary.json";
 const VOCABULARY_LIMIT = 1000;
 const AUTH_TOKEN_STORAGE_KEY = "lingualift-auth-token-v1";
 
-// TODO: 在 Authing 控制台创建应用后，将下面两个占位符替换为真实配置。
-// AppHost 通常形如 https://your-app.authing.cn 或私有化部署域名；如不需要自定义 Host 可留空。
-const AUTHING_APP_ID = "YOUR_AUTHING_APP_ID";
-const AUTHING_APP_HOST = "YOUR_AUTHING_APP_HOST";
-const AUTHING_PLACEHOLDERS = new Set(["", "YOUR_AUTHING_APP_ID", "YOUR_AUTHING_APP_HOST"]);
+const AUTHING_APP_ID = "6a05bf751acae649fcec3c8e";
+const AUTHING_APP_HOST = "9e2deba31650efaf7bee9e2632b0a61a";
+const AUTHING_REDIRECT_PATH = window.location.pathname;
+const AUTHING_REDIRECT_URI = `${window.location.origin}${AUTHING_REDIRECT_PATH}`;
 
 
 let ieltsWords = [];
@@ -223,26 +222,66 @@ async function saveLearningProgressToServer() {
   return learningApi.saveLearningProgress(createProgressPayload());
 }
 
-function createFakeThirdPartyUser(provider) {
-  const providerName = provider === "wechat" ? "微信" : provider;
-  const randomId = Math.random().toString(36).slice(2, 10);
-  return {
-    userId: `${provider}-${Date.now()}-${randomId}`,
-    nickname: `${providerName}用户${randomId.slice(0, 4).toUpperCase()}`,
-    avatar: "微",
-    provider,
-    token: `mock-${provider}-${crypto.randomUUID?.() || randomId}-${Date.now()}`
-  };
+function normalizeAuthingDomain(appHost = "") {
+  const trimmedHost = appHost.trim().replace(/\/$/, "");
+  if (!trimmedHost) return "";
+  if (/^https?:\/\//i.test(trimmedHost)) return trimmedHost;
+  if (trimmedHost.includes(".")) return `https://${trimmedHost}`;
+  return `https://${trimmedHost}.authing.cn`;
 }
 
-function normalizeAuthingUser(user = {}) {
-  const token = user.token || user.idToken || user.id_token || user.accessToken || user.access_token;
+function getAuthingFactory() {
+  return window.AuthingFactory?.Authing || window.Authing?.Authing || window.Authing;
+}
+
+function createAuthingClient() {
+  const AuthingConstructor = getAuthingFactory();
+  if (!AuthingConstructor) {
+    throw new Error("Authing Web SDK 尚未加载，请确认 index.html 中的官方 SPA CDN 是否可访问。");
+  }
+
+  return new AuthingConstructor({
+    domain: normalizeAuthingDomain(AUTHING_APP_HOST),
+    appId: AUTHING_APP_ID,
+    redirectUri: AUTHING_REDIRECT_URI
+  });
+}
+
+function getAuthingClient() {
+  if (!window.linguaLiftAuthingClient) {
+    window.linguaLiftAuthingClient = createAuthingClient();
+  }
+  return window.linguaLiftAuthingClient;
+}
+
+function pickToken(loginState = {}) {
+  return loginState.accessToken
+    || loginState.idToken
+    || loginState.token
+    || loginState.access_token
+    || loginState.id_token
+    || loginState?.rawToken?.access_token
+    || loginState?.rawToken?.id_token
+    || "";
+}
+
+function pickUser(loginState = {}, userInfo = {}) {
+  return userInfo.userInfo || userInfo.user || loginState.userInfo || loginState.user || loginState.profile || userInfo || {};
+}
+
+function normalizeAuthingUser(loginState = {}, userInfo = {}) {
+  const user = pickUser(loginState, userInfo);
+  const token = pickToken(loginState);
+  const userId = user.id || user.userId || user.sub || loginState.sub || loginState.userId || `authing-${Date.now()}`;
+  const nickname = user.nickname || user.username || user.name || user.displayName || user.email || user.phone || "Authing 用户";
+
   return {
-    userId: user.id || user.userId || user.sub || user.unionid || `authing-${Date.now()}`,
-    nickname: user.nickname || user.username || user.name || user.email || user.phone || "Authing 用户",
-    avatar: user.photo || user.avatar || user.picture || "A",
+    userId,
+    nickname,
+    phone: user.phone || user.phoneNumber || "",
+    avatar: user.photo || user.avatar || user.picture || nickname.slice(0, 1) || "A",
     provider: "authing",
-    token: token || `authing-session-${Date.now()}`
+    token
   };
 }
 
@@ -265,108 +304,78 @@ function applyAuthenticatedUser(authUser) {
   renderTodayReport();
 }
 
-async function handleThirdPartyLogin(provider) {
-  const button = document.querySelector(`[data-provider="${provider}"]`);
-  if (button) {
-    button.disabled = true;
-    button.textContent = "微信授权中…";
-  }
-  setAuthFeedback("正在模拟向后端发起第三方授权请求，预计 2 秒返回。", "info");
+async function applyAuthingLoginState(loginState) {
+  if (!loginState) return null;
 
+  const authing = getAuthingClient();
+  let userInfo = {};
   try {
-    await delay(2000);
-    const fakeUser = createFakeThirdPartyUser(provider);
-    applyAuthenticatedUser(fakeUser);
-    setAuthFeedback(`模拟登录成功：${fakeUser.nickname}。Token 已写入 localStorage。`, "success");
-    document.querySelector("#auth-dialog")?.close();
-    return fakeUser;
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = "💬 微信模拟登录";
-    }
-  }
-}
-
-function getAuthingConstructor() {
-  return window.authingNativeJsUIComponents?.authingGuard
-    || window.AuthingNativeJsUIComponents?.AuthingGuard
-    || window.Authing?.Guard;
-}
-
-function isAuthingConfigured() {
-  return !AUTHING_PLACEHOLDERS.has(AUTHING_APP_ID);
-}
-
-function createAuthingGuard() {
-  const GuardConstructor = getAuthingConstructor();
-  if (!GuardConstructor) {
-    throw new Error("Authing Guard SDK 尚未加载，请确认 CDN script 已在 index.html <head> 中引入。 ");
-  }
-  if (!isAuthingConfigured()) {
-    throw new Error("请先在 app.js 中填写 AUTHING_APP_ID；如有独立域名，也请填写 AUTHING_APP_HOST。 ");
-  }
-
-  const config = {
-    mode: "modal",
-    lang: "zh-CN",
-    redirectUri: window.location.href
-  };
-  if (!AUTHING_PLACEHOLDERS.has(AUTHING_APP_HOST)) {
-    config.host = AUTHING_APP_HOST;
-    config.appHost = AUTHING_APP_HOST;
-  }
-
-  if (window.Authing?.Guard === GuardConstructor) {
-    return new GuardConstructor({ appId: AUTHING_APP_ID, ...config });
-  }
-  return new GuardConstructor(AUTHING_APP_ID, config);
-}
-
-function initAuthingGuard() {
-  if (window.linguaLiftAuthingGuard) return window.linguaLiftAuthingGuard;
-
-  const guard = createAuthingGuard();
-  guard.on?.("load", (authClient) => {
-    window.linguaLiftAuthingClient = authClient;
-    setAuthFeedback("Authing Guard 加载完成，可以开始登录。", "success");
-  });
-  guard.on?.("login", (user, authClient) => {
-    window.linguaLiftAuthingClient = authClient;
-    window.linguaLiftLastAuthingUser = user;
-    applyAuthenticatedUser(normalizeAuthingUser(user));
-    setAuthFeedback("Authing 登录成功，回调用户数据已写入 window.linguaLiftLastAuthingUser。", "success");
-    document.querySelector("#auth-dialog")?.close();
-    console.info("Authing login callback user:", user);
-  });
-  guard.on?.("register", (user, authClient) => {
-    window.linguaLiftAuthingClient = authClient;
-    window.linguaLiftLastAuthingUser = user;
-    applyAuthenticatedUser(normalizeAuthingUser(user));
-    setAuthFeedback("Authing 注册并登录成功。", "success");
-    document.querySelector("#auth-dialog")?.close();
-  });
-  guard.on?.("login-error", (error) => {
-    console.error("Authing login error:", error);
-    setAuthFeedback("Authing 登录失败，请检查应用配置或控制台错误。", "error");
-  });
-  guard.on?.("load-error", (error) => {
-    console.error("Authing Guard load error:", error);
-    setAuthFeedback("Authing Guard 加载失败，请检查 AppId、AppHost 与回调 URL。", "error");
-  });
-
-  window.linguaLiftAuthingGuard = guard;
-  return guard;
-}
-
-function showAuthingLogin() {
-  try {
-    const guard = initAuthingGuard();
-    guard.show?.();
-    setAuthFeedback("正在打开 Authing 登录组件。", "info");
+    userInfo = await authing.getUserInfo?.() || {};
   } catch (error) {
-    setAuthFeedback(error.message, "error");
+    console.warn("Authing userInfo request failed, falling back to loginState:", error);
   }
+
+  window.linguaLiftLastAuthingLoginState = loginState;
+  window.linguaLiftLastAuthingUser = pickUser(loginState, userInfo);
+  const authUser = normalizeAuthingUser(loginState, userInfo);
+  applyAuthenticatedUser(authUser);
+  return authUser;
+}
+
+async function hydrateAuthingSession() {
+  const authing = getAuthingClient();
+
+  if (authing.isRedirectCallback?.()) {
+    setAuthFeedback("正在处理 Authing 登录回调……", "info");
+    const loginState = await authing.handleRedirectCallback();
+    const authUser = await applyAuthingLoginState(loginState);
+    setAuthFeedback(`Authing 登录成功：${authUser?.nickname || "学习者"}，Token 已保存。`, "success");
+    window.history.replaceState({}, document.title, AUTHING_REDIRECT_PATH + window.location.hash);
+    return;
+  }
+
+  const loginState = await authing.getLoginState?.({ ignoreCache: false });
+  if (loginState) {
+    await applyAuthingLoginState(loginState);
+    setAuthFeedback("已恢复 Authing 登录状态。", "success");
+  }
+}
+
+async function showAuthingLogin() {
+  try {
+    const authing = getAuthingClient();
+    setAuthFeedback("正在跳转到 Authing 托管登录页……", "info");
+    await authing.loginWithRedirect();
+  } catch (error) {
+    console.error("Authing redirect login failed:", error);
+    setAuthFeedback(error.message || "Authing 登录跳转失败，请检查 App Host、回调 URL 与 CDN。", "error");
+  }
+}
+
+async function logoutAuthing() {
+  const authing = getAuthingClient();
+  clearToken();
+  state.user = null;
+  state.auth = { provider: null, tokenSavedAt: null };
+  saveState();
+  renderAuth();
+  renderVocab();
+  setAuthFeedback("已退出 LinguaLift，本地 Token 已清除。", "success");
+
+  try {
+    await authing.logoutWithRedirect?.({ redirectUri: AUTHING_REDIRECT_URI });
+  } catch (error) {
+    console.warn("Authing logout redirect failed:", error);
+  }
+}
+
+
+function setAuthFeedback(message = "", type = "info") {
+  const feedback = document.querySelector("#auth-feedback");
+  if (!feedback) return;
+  feedback.textContent = message;
+  feedback.dataset.type = type;
+  feedback.hidden = !message;
 }
 
 function todayKey() {
@@ -401,7 +410,7 @@ function renderAuth() {
     panel.innerHTML = `
       <button class="button small" id="login-button" type="button">登录</button>
     `;
-    document.querySelector("#login-button").addEventListener("click", () => document.querySelector("#auth-dialog").showModal());
+    document.querySelector("#login-button").addEventListener("click", showAuthingLogin);
     return;
   }
 
@@ -412,16 +421,34 @@ function renderAuth() {
     <span class="user-pill" title="账号ID：${escapeHtml(state.user.accountId)}">Hi, ${nickname}</span>
     <button class="button small ghost" id="logout-button" type="button">退出</button>
   `;
-  document.querySelector("#logout-button").addEventListener("click", () => {
-    clearToken();
-    state.user = null;
-    state.auth = { provider: null, tokenSavedAt: null };
-    saveState();
-    renderAuth();
-  });
+  document.querySelector("#logout-button").addEventListener("click", logoutAuthing);
 }
 
-function renderVocabLoading(message = "正在通过 Fetch API 模拟从服务器获取 1000 条雅思词库……") {
+function renderVocabLocked() {
+  document.querySelector("#vocab-stats").innerHTML = `
+    <div><strong>Authing</strong><span>访问控制</span></div>
+    <div><strong>登录后</strong><span>解锁状态</span></div>
+    <div><strong>${state.dailyGoal}</strong><span>今日目标</span></div>
+  `;
+  document.querySelector("#vocab-list").innerHTML = `
+    <article class="word-row">
+      <div class="word-main">
+        <span class="tag">Locked</span>
+        <div class="word-title"><h4>请先登录 Authing</h4></div>
+        <p>登录成功后会解析真实用户信息、保存 Token，并开放雅思词汇学习进度。</p>
+      </div>
+      <button class="button primary full" id="vocab-login-button" type="button">登录后学习雅思词汇</button>
+    </article>
+  `;
+  document.querySelector("#vocab-login-button")?.addEventListener("click", showAuthingLogin);
+}
+
+function renderVocabLoading(message = "正在通过 Fetch API 从服务器获取 1000 条雅思词库……") {
+  if (!isAuthenticated()) {
+    renderVocabLocked();
+    return;
+  }
+
   document.querySelector("#vocab-stats").innerHTML = `
     <div><strong>API</strong><span>词库来源</span></div>
     <div><strong>1000</strong><span>请求条数</span></div>
@@ -431,6 +458,11 @@ function renderVocabLoading(message = "正在通过 Fetch API 模拟从服务器
 }
 
 function renderVocab() {
+  if (!isAuthenticated()) {
+    renderVocabLocked();
+    return;
+  }
+
   if (vocabularyLoadState !== "ready") {
     renderVocabLoading();
     return;
@@ -630,10 +662,6 @@ function renderTodayReport() {
 }
 
 function bindForms() {
-  document.querySelector("#auth-dialog-close").addEventListener("click", () => document.querySelector("#auth-dialog").close());
-  document.querySelector("#authing-login-button").addEventListener("click", showAuthingLogin);
-  document.querySelector('[data-provider="wechat"]').addEventListener("click", () => handleThirdPartyLogin("wechat"));
-
   document.querySelector("#daily-goal-form").addEventListener("submit", (event) => {
     event.preventDefault();
     state.dailyGoal = Number(document.querySelector("#daily-goal").value) || 8;
@@ -697,6 +725,10 @@ async function init() {
   renderProgress();
   renderTodayReport();
   bindForms();
+  await hydrateAuthingSession().catch((error) => {
+    console.error("Authing session hydration failed:", error);
+    setAuthFeedback("Authing 登录状态读取失败，请重新登录。", "error");
+  });
   await loadIeltsVocabulary();
 }
 

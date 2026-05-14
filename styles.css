@@ -8,6 +8,7 @@
   --primary-dark: #1e4fbd;
   --accent: #00a878;
   --warning: #f59e0b;
+  --danger: #dc2626;
   --soft: #e9f0ff;
   --soft-green: #eafaf4;
   --line: #dbe4f3;
@@ -381,19 +382,19 @@ textarea { resize: vertical; }
 .speak-button { width: 2rem; height: 2rem; }
 .icon-button { justify-self: end; width: 2rem; height: 2rem; }
 
-.auth-dialog {
-  width: min(92vw, 28rem);
-  border: 0;
-  border-radius: 1.5rem;
-  padding: 0;
-  box-shadow: var(--shadow);
+.auth-status {
+  max-width: 1180px;
+  margin: 0.75rem auto 0;
+  padding: 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
-.auth-dialog::backdrop { background: rgba(23, 32, 51, 0.38); backdrop-filter: blur(5px); }
-.auth-form { display: grid; gap: 0.85rem; padding: 1.5rem; }
-.auth-form h2,
-.auth-form p { margin: 0; }
-.auth-form p { color: var(--muted); }
+.auth-status:empty,
+.auth-status[hidden] { display: none; }
+.auth-status[data-type="success"] { color: var(--accent); }
+.auth-status[data-type="error"] { color: var(--danger); }
+.auth-status[data-type="info"] { color: var(--primary-dark); }
 
 .site-footer {
   display: flex;
@@ -431,34 +432,6 @@ textarea { resize: vertical; }
   .site-footer { flex-direction: column; }
 }
 
-.account-count {
-  color: var(--muted);
-  font-size: 0.82rem;
-  white-space: nowrap;
-}
-
-.auth-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.6rem;
-}
-
-.auth-tabs label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.65rem 0.85rem;
-  background: #f7f9fd;
-  color: var(--primary-dark);
-  font-weight: 800;
-}
-
-.auth-tabs input { width: auto; }
-.auth-hint[data-type="success"] { color: var(--accent); }
-.auth-hint[data-type="error"] { color: #dc2626; }
 .business-stats { margin: 0 0 1rem; }
 .scenario-row small { color: var(--muted); }
 
@@ -472,30 +445,4 @@ textarea { resize: vertical; }
   color: white;
   font-size: 0.82rem;
   font-weight: 900;
-}
-
-.auth-options {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.wechat-login {
-  color: #087f5b;
-}
-
-.authing-config-note {
-  border: 1px dashed var(--line);
-  border-radius: 1rem;
-  background: #f7f9fd;
-  padding: 0.85rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.authing-config-note code {
-  border-radius: 0.35rem;
-  background: var(--soft);
-  padding: 0.08rem 0.28rem;
-  color: var(--primary-dark);
-  font-weight: 800;
 }
