@@ -430,3 +430,34 @@ textarea { resize: vertical; }
   .today-report p { grid-column: auto; }
   .site-footer { flex-direction: column; }
 }
+
+.account-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+.auth-tabs label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.65rem 0.85rem;
+  background: #f7f9fd;
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
+.auth-tabs input { width: auto; }
+.auth-hint[data-type="success"] { color: var(--accent); }
+.auth-hint[data-type="error"] { color: #dc2626; }
+.business-stats { margin: 0 0 1rem; }
+.scenario-row small { color: var(--muted); }
