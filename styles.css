@@ -461,3 +461,41 @@ textarea { resize: vertical; }
 .auth-hint[data-type="error"] { color: #dc2626; }
 .business-stats { margin: 0 0 1rem; }
 .scenario-row small { color: var(--muted); }
+
+.user-avatar {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e, var(--primary));
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.auth-options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.wechat-login {
+  color: #087f5b;
+}
+
+.authing-config-note {
+  border: 1px dashed var(--line);
+  border-radius: 1rem;
+  background: #f7f9fd;
+  padding: 0.85rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.authing-config-note code {
+  border-radius: 0.35rem;
+  background: var(--soft);
+  padding: 0.08rem 0.28rem;
+  color: var(--primary-dark);
+  font-weight: 800;
+}
