@@ -8,6 +8,9 @@
       content="为英语初级和中级学习者打造的日常英语、商务英语、雅思词汇和英文资讯学习网站。"
     />
     <title>LinguaLift 英语学习平台</title>
+    <!-- Authing Guard SDK：通过 CDN 引入原生 JavaScript 登录组件及样式。 -->
+    <link href="https://cdn.jsdelivr.net/npm/@authing/native-js-ui-components/lib/index.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@authing/native-js-ui-components"></script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -133,26 +136,19 @@
     </main>
 
     <dialog class="auth-dialog" id="auth-dialog">
-      <form method="dialog" class="auth-form" id="login-form">
-        <button class="icon-button" value="cancel" aria-label="关闭登录窗口">×</button>
-        <h2>账号管理</h2>
-        <p>注册或登录都会绑定手机号、校验 6 位验证码，并生成可追踪的账号 ID；演示版将账号与学习数据安全保存在本机浏览器。</p>
-        <div class="auth-tabs" role="tablist" aria-label="账号操作">
-          <label><input type="radio" name="auth-mode" value="register" checked /> 注册</label>
-          <label><input type="radio" name="auth-mode" value="login" /> 登录</label>
+      <div class="auth-form" id="login-form">
+        <button class="icon-button" type="button" aria-label="关闭登录窗口" id="auth-dialog-close">×</button>
+        <h2>账号管理 / 登录 LinguaLift</h2>
+        <p>生产环境建议使用 Authing Guard 完成国内认证、社交登录和回调处理；下方微信入口保留为 2 秒模拟授权演示。</p>
+        <div class="auth-options" aria-label="登录方式">
+          <button class="button primary full" id="authing-login-button" type="button">打开 Authing 登录组件</button>
+          <button class="button ghost full wechat-login" data-provider="wechat" type="button">💬 微信模拟登录</button>
         </div>
-        <label for="nickname">昵称</label>
-        <input id="nickname" name="nickname" autocomplete="nickname" required placeholder="例如：Alex" />
-        <label for="phone">手机号</label>
-        <div class="inline-form nowrap">
-          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" required placeholder="例如：13800138000" />
-          <button class="button ghost" id="send-code-button" type="button">获取验证码</button>
+        <div class="authing-config-note">
+          <strong>配置提示：</strong>在 <code>app.js</code> 中填写 <code>AUTHING_APP_ID</code> 与 <code>AUTHING_APP_HOST</code> 后，登录成功会触发 <code>guard.on("login", callback)</code>，回调数据会临时暴露在 <code>window.linguaLiftLastAuthingUser</code> 便于调试。
         </div>
-        <label for="sms-code">手机验证码</label>
-        <input id="sms-code" name="sms-code" inputmode="numeric" maxlength="6" required placeholder="输入 6 位验证码" />
-        <small class="auth-hint" id="auth-feedback">验证码 5 分钟内有效。静态演示环境会在本窗口显示测试验证码。</small>
-        <button class="button primary" type="submit">完成账号校验</button>
-      </form>
+        <small class="auth-hint" id="auth-feedback">未配置 Authing 时，可先点击微信模拟登录验证导航栏状态切换。</small>
+      </div>
     </dialog>
 
     <footer class="site-footer">

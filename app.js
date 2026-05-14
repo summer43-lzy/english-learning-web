@@ -4,7 +4,14 @@ const STORAGE_KEY = "lingualift-state-v1";
 const SERVER_PROGRESS_KEY = "lingualift-server-progress-v1";
 const IELTS_VOCABULARY_API_URL = "./data/ielts-vocabulary.json";
 const VOCABULARY_LIMIT = 1000;
-const MOCK_SMS_SHOW_CODE = true;
+const AUTH_TOKEN_STORAGE_KEY = "lingualift-auth-token-v1";
+
+// TODO: 在 Authing 控制台创建应用后，将下面两个占位符替换为真实配置。
+// AppHost 通常形如 https://your-app.authing.cn 或私有化部署域名；如不需要自定义 Host 可留空。
+const AUTHING_APP_ID = "YOUR_AUTHING_APP_ID";
+const AUTHING_APP_HOST = "YOUR_AUTHING_APP_HOST";
+const AUTHING_PLACEHOLDERS = new Set(["", "YOUR_AUTHING_APP_ID", "YOUR_AUTHING_APP_HOST"]);
+
 
 let ieltsWords = [];
 let vocabularyLoadState = "idle";
@@ -97,8 +104,8 @@ const readingSources = [
 
 const defaultState = {
   user: null,
+  auth: { provider: null, tokenSavedAt: null },
   accounts: {},
-  pendingOtp: null,
   learnedWords: [],
   practiceCount: 0,
   dailyGoal: 8,
@@ -111,7 +118,14 @@ let state = loadState();
 
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return { ...defaultState };
+  const loadedState = raw ? safeParseState(raw) : { ...defaultState };
+  if (localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) && !loadedState.user) {
+    loadedState.user = { accountId: "stored-token-user", nickname: "已登录用户", avatar: "U", provider: "stored-token" };
+  }
+  return loadedState;
+}
+
+function safeParseState(raw) {
   try {
     return { ...defaultState, ...JSON.parse(raw) };
   } catch {
@@ -137,8 +151,31 @@ function delay(ms = 450) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function maskPhone(phone) {
-  return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
+function escapeHtml(value = "") {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function getStoredToken() {
+  return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+}
+
+function isAuthenticated() {
+  return Boolean(getStoredToken());
+}
+
+function persistToken(token) {
+  if (!token) return;
+  localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+}
+
+function clearToken() {
+  localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
 }
 
 function createProgressPayload() {
@@ -170,20 +207,6 @@ const learningApi = {
     return words.slice(0, limit);
   },
 
-  async requestSmsCode(phone) {
-    await delay();
-    const code = generateCode();
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-    state.pendingOtp = { phone, code, expiresAt };
-    saveState();
-
-    return {
-      maskedPhone: maskPhone(phone),
-      expiresInSeconds: 300,
-      provider: "MockSmsGateway",
-      devCode: MOCK_SMS_SHOW_CODE ? code : null
-    };
-  },
 
   async saveLearningProgress(progress = createProgressPayload()) {
     await delay();
@@ -200,33 +223,150 @@ async function saveLearningProgressToServer() {
   return learningApi.saveLearningProgress(createProgressPayload());
 }
 
-function normalizePhone(phone = "") {
-  return String(phone).replace(/\D/g, "");
+function createFakeThirdPartyUser(provider) {
+  const providerName = provider === "wechat" ? "微信" : provider;
+  const randomId = Math.random().toString(36).slice(2, 10);
+  return {
+    userId: `${provider}-${Date.now()}-${randomId}`,
+    nickname: `${providerName}用户${randomId.slice(0, 4).toUpperCase()}`,
+    avatar: "微",
+    provider,
+    token: `mock-${provider}-${crypto.randomUUID?.() || randomId}-${Date.now()}`
+  };
 }
 
-function isValidPhone(phone) {
-  return /^1[3-9]\d{9}$/.test(phone);
+function normalizeAuthingUser(user = {}) {
+  const token = user.token || user.idToken || user.id_token || user.accessToken || user.access_token;
+  return {
+    userId: user.id || user.userId || user.sub || user.unionid || `authing-${Date.now()}`,
+    nickname: user.nickname || user.username || user.name || user.email || user.phone || "Authing 用户",
+    avatar: user.photo || user.avatar || user.picture || "A",
+    provider: "authing",
+    token: token || `authing-session-${Date.now()}`
+  };
 }
 
-function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+function applyAuthenticatedUser(authUser) {
+  persistToken(authUser.token);
+  state.user = {
+    accountId: authUser.userId,
+    nickname: authUser.nickname,
+    phone: authUser.phone || "",
+    avatar: authUser.avatar,
+    provider: authUser.provider
+  };
+  state.auth = { provider: authUser.provider, tokenSavedAt: new Date().toISOString() };
+  saveState();
+  saveLearningProgressToServer().catch(() => {});
+  renderAuth();
+  renderVocab();
+  renderScenarios();
+  renderProgress();
+  renderTodayReport();
 }
 
-function generateAccountId(phone) {
-  const suffix = phone.slice(-4);
-  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `LL-${new Date().getFullYear()}-${suffix}-${randomPart}`;
+async function handleThirdPartyLogin(provider) {
+  const button = document.querySelector(`[data-provider="${provider}"]`);
+  if (button) {
+    button.disabled = true;
+    button.textContent = "微信授权中…";
+  }
+  setAuthFeedback("正在模拟向后端发起第三方授权请求，预计 2 秒返回。", "info");
+
+  try {
+    await delay(2000);
+    const fakeUser = createFakeThirdPartyUser(provider);
+    applyAuthenticatedUser(fakeUser);
+    setAuthFeedback(`模拟登录成功：${fakeUser.nickname}。Token 已写入 localStorage。`, "success");
+    document.querySelector("#auth-dialog")?.close();
+    return fakeUser;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "💬 微信模拟登录";
+    }
+  }
 }
 
-function setAuthFeedback(message, type = "info") {
-  const feedback = document.querySelector("#auth-feedback");
-  if (!feedback) return;
-  feedback.textContent = message;
-  feedback.dataset.type = type;
+function getAuthingConstructor() {
+  return window.authingNativeJsUIComponents?.authingGuard
+    || window.AuthingNativeJsUIComponents?.AuthingGuard
+    || window.Authing?.Guard;
 }
 
-function accountCount() {
-  return Object.keys(state.accounts || {}).length;
+function isAuthingConfigured() {
+  return !AUTHING_PLACEHOLDERS.has(AUTHING_APP_ID);
+}
+
+function createAuthingGuard() {
+  const GuardConstructor = getAuthingConstructor();
+  if (!GuardConstructor) {
+    throw new Error("Authing Guard SDK 尚未加载，请确认 CDN script 已在 index.html <head> 中引入。 ");
+  }
+  if (!isAuthingConfigured()) {
+    throw new Error("请先在 app.js 中填写 AUTHING_APP_ID；如有独立域名，也请填写 AUTHING_APP_HOST。 ");
+  }
+
+  const config = {
+    mode: "modal",
+    lang: "zh-CN",
+    redirectUri: window.location.href
+  };
+  if (!AUTHING_PLACEHOLDERS.has(AUTHING_APP_HOST)) {
+    config.host = AUTHING_APP_HOST;
+    config.appHost = AUTHING_APP_HOST;
+  }
+
+  if (window.Authing?.Guard === GuardConstructor) {
+    return new GuardConstructor({ appId: AUTHING_APP_ID, ...config });
+  }
+  return new GuardConstructor(AUTHING_APP_ID, config);
+}
+
+function initAuthingGuard() {
+  if (window.linguaLiftAuthingGuard) return window.linguaLiftAuthingGuard;
+
+  const guard = createAuthingGuard();
+  guard.on?.("load", (authClient) => {
+    window.linguaLiftAuthingClient = authClient;
+    setAuthFeedback("Authing Guard 加载完成，可以开始登录。", "success");
+  });
+  guard.on?.("login", (user, authClient) => {
+    window.linguaLiftAuthingClient = authClient;
+    window.linguaLiftLastAuthingUser = user;
+    applyAuthenticatedUser(normalizeAuthingUser(user));
+    setAuthFeedback("Authing 登录成功，回调用户数据已写入 window.linguaLiftLastAuthingUser。", "success");
+    document.querySelector("#auth-dialog")?.close();
+    console.info("Authing login callback user:", user);
+  });
+  guard.on?.("register", (user, authClient) => {
+    window.linguaLiftAuthingClient = authClient;
+    window.linguaLiftLastAuthingUser = user;
+    applyAuthenticatedUser(normalizeAuthingUser(user));
+    setAuthFeedback("Authing 注册并登录成功。", "success");
+    document.querySelector("#auth-dialog")?.close();
+  });
+  guard.on?.("login-error", (error) => {
+    console.error("Authing login error:", error);
+    setAuthFeedback("Authing 登录失败，请检查应用配置或控制台错误。", "error");
+  });
+  guard.on?.("load-error", (error) => {
+    console.error("Authing Guard load error:", error);
+    setAuthFeedback("Authing Guard 加载失败，请检查 AppId、AppHost 与回调 URL。", "error");
+  });
+
+  window.linguaLiftAuthingGuard = guard;
+  return guard;
+}
+
+function showAuthingLogin() {
+  try {
+    const guard = initAuthingGuard();
+    guard.show?.();
+    setAuthFeedback("正在打开 Authing 登录组件。", "info");
+  } catch (error) {
+    setAuthFeedback(error.message, "error");
+  }
 }
 
 function todayKey() {
@@ -255,20 +395,27 @@ function speak(text) {
 
 function renderAuth() {
   const panel = document.querySelector("#auth-panel");
-  if (!state.user) {
+  const loggedIn = isAuthenticated() && state.user;
+
+  if (!loggedIn) {
     panel.innerHTML = `
-      <span class="account-count">${accountCount()} 个本机账号</span>
-      <button class="button small" id="login-button" type="button">注册 / 登录</button>
+      <button class="button small" id="login-button" type="button">登录</button>
     `;
     document.querySelector("#login-button").addEventListener("click", () => document.querySelector("#auth-dialog").showModal());
     return;
   }
+
+  const nickname = escapeHtml(state.user.nickname || "学习者");
+  const avatarText = escapeHtml(String(state.user.avatar || nickname.slice(0, 1) || "U").slice(0, 2));
   panel.innerHTML = `
-    <span class="user-pill" title="账号ID：${state.user.accountId}">Hi, ${state.user.nickname}</span>
-    <button class="button small ghost" id="logout-button" type="button">登出</button>
+    <span class="user-avatar" aria-hidden="true">${avatarText}</span>
+    <span class="user-pill" title="账号ID：${escapeHtml(state.user.accountId)}">Hi, ${nickname}</span>
+    <button class="button small ghost" id="logout-button" type="button">退出</button>
   `;
   document.querySelector("#logout-button").addEventListener("click", () => {
+    clearToken();
     state.user = null;
+    state.auth = { provider: null, tokenSavedAt: null };
     saveState();
     renderAuth();
   });
@@ -483,97 +630,9 @@ function renderTodayReport() {
 }
 
 function bindForms() {
-  document.querySelector("#send-code-button").addEventListener("click", async () => {
-    const phone = normalizePhone(document.querySelector("#phone").value);
-    if (!isValidPhone(phone)) {
-      setAuthFeedback("请输入有效的中国大陆 11 位手机号。", "error");
-      return;
-    }
-
-    const button = document.querySelector("#send-code-button");
-    button.disabled = true;
-    button.textContent = "发送中…";
-    setAuthFeedback("正在调用短信验证码接口，请稍候。", "info");
-
-    try {
-      const result = await learningApi.requestSmsCode(phone);
-      const inboxText = result.devCode ? ` 演示收件箱验证码：${result.devCode}` : " 请查看手机短信。";
-      setAuthFeedback(`验证码已发送至 ${result.maskedPhone}，${Math.round(result.expiresInSeconds / 60)} 分钟内有效。${inboxText}`, "success");
-    } catch {
-      setAuthFeedback("验证码发送失败，请稍后重试。", "error");
-    } finally {
-      button.disabled = false;
-      button.textContent = "获取验证码";
-    }
-  });
-
-  document.querySelector("#login-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const mode = form.get("auth-mode");
-    const nickname = String(form.get("nickname") || "").trim();
-    const phone = normalizePhone(form.get("phone"));
-    const code = String(form.get("sms-code") || "").trim();
-    const existingAccount = state.accounts[phone];
-
-    if (!nickname) {
-      setAuthFeedback("请先设置昵称。", "error");
-      return;
-    }
-    if (!isValidPhone(phone)) {
-      setAuthFeedback("请输入有效的中国大陆 11 位手机号。", "error");
-      return;
-    }
-    if (!state.pendingOtp || state.pendingOtp.phone !== phone || state.pendingOtp.code !== code || state.pendingOtp.expiresAt < Date.now()) {
-      setAuthFeedback("验证码不正确或已过期，请重新获取。", "error");
-      return;
-    }
-    if (mode === "register" && existingAccount) {
-      setAuthFeedback("该手机号已注册，请切换到登录。", "error");
-      return;
-    }
-    if (mode === "login" && !existingAccount) {
-      setAuthFeedback("该手机号尚未注册，请先注册。", "error");
-      return;
-    }
-
-    const account = existingAccount || {
-      accountId: generateAccountId(phone),
-      phone,
-      createdAt: new Date().toISOString(),
-      learningData: { learnedWords: [], summaries: {}, practiceCount: 0, businessPracticed: [] }
-    };
-    account.nickname = nickname;
-    account.lastLoginAt = new Date().toISOString();
-    if (existingAccount?.learningData) {
-      state.learnedWords = existingAccount.learningData.learnedWords || [];
-      state.summaries = existingAccount.learningData.summaries || {};
-      state.practiceCount = existingAccount.learningData.practiceCount || 0;
-      state.businessPracticed = existingAccount.learningData.businessPracticed || [];
-      state.dailyGoal = existingAccount.learningData.dailyGoal || state.dailyGoal;
-      state.lastServerSyncAt = existingAccount.learningData.lastServerSyncAt || state.lastServerSyncAt;
-    }
-    account.learningData = {
-      learnedWords: state.learnedWords,
-      summaries: state.summaries,
-      practiceCount: state.practiceCount,
-      businessPracticed: state.businessPracticed,
-      dailyGoal: state.dailyGoal,
-      lastServerSyncAt: state.lastServerSyncAt
-    };
-    state.accounts = { ...state.accounts, [phone]: account };
-    state.user = { accountId: account.accountId, nickname: account.nickname, phone: account.phone };
-    state.pendingOtp = null;
-    saveState();
-    saveLearningProgressToServer().catch(() => {});
-    event.currentTarget.reset();
-    document.querySelector("#auth-dialog").close();
-    renderAuth();
-    renderVocab();
-    renderScenarios();
-    renderProgress();
-    renderTodayReport();
-  });
+  document.querySelector("#auth-dialog-close").addEventListener("click", () => document.querySelector("#auth-dialog").close());
+  document.querySelector("#authing-login-button").addEventListener("click", showAuthingLogin);
+  document.querySelector('[data-provider="wechat"]').addEventListener("click", () => handleThirdPartyLogin("wechat"));
 
   document.querySelector("#daily-goal-form").addEventListener("submit", (event) => {
     event.preventDefault();
