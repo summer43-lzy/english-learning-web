@@ -1,7 +1,13 @@
-import { ieltsWords } from "./data/ielts-vocabulary.js";
 import { businessScenarios } from "./data/business-scenarios.js";
 
 const STORAGE_KEY = "lingualift-state-v1";
+const SERVER_PROGRESS_KEY = "lingualift-server-progress-v1";
+const IELTS_VOCABULARY_API_URL = "./data/ielts-vocabulary.json";
+const VOCABULARY_LIMIT = 1000;
+const MOCK_SMS_SHOW_CODE = true;
+
+let ieltsWords = [];
+let vocabularyLoadState = "idle";
 
 const dailyScenarios = [
   { title: "点餐", level: "Beginner", goal: "礼貌下单、选择冷热、提出少糖等偏好。", lines: ["Could I have a latte, please?", "Would you like it hot or iced?", "Iced, please. Could you make it less sweet?"] },
@@ -97,7 +103,8 @@ const defaultState = {
   practiceCount: 0,
   dailyGoal: 8,
   summaries: {},
-  businessPracticed: []
+  businessPracticed: [],
+  lastServerSyncAt: null
 };
 
 let state = loadState();
@@ -118,10 +125,79 @@ function saveState() {
       learnedWords: state.learnedWords,
       summaries: state.summaries,
       practiceCount: state.practiceCount,
-      businessPracticed: state.businessPracticed
+      businessPracticed: state.businessPracticed,
+      dailyGoal: state.dailyGoal,
+      lastServerSyncAt: state.lastServerSyncAt
     };
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function delay(ms = 450) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function maskPhone(phone) {
+  return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
+}
+
+function createProgressPayload() {
+  return {
+    userId: state.user?.accountId || "guest",
+    phone: state.user?.phone || "",
+    currentCategory: "雅思",
+    masteredWords: state.learnedWords,
+    checkInDays: Object.keys(state.summaries || {}).length,
+    dailyGoal: state.dailyGoal,
+    practiceCount: state.practiceCount,
+    businessPracticed: state.businessPracticed || [],
+    summaries: state.summaries,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+const learningApi = {
+  async fetchIeltsVocabulary(limit = VOCABULARY_LIMIT) {
+    const response = await fetch(IELTS_VOCABULARY_API_URL, {
+      headers: { Accept: "application/json" },
+      cache: "no-store"
+    });
+    if (!response.ok) throw new Error(`IELTS vocabulary request failed: ${response.status}`);
+
+    const payload = await response.json();
+    const words = Array.isArray(payload.words) ? payload.words : [];
+    await delay(300);
+    return words.slice(0, limit);
+  },
+
+  async requestSmsCode(phone) {
+    await delay();
+    const code = generateCode();
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    state.pendingOtp = { phone, code, expiresAt };
+    saveState();
+
+    return {
+      maskedPhone: maskPhone(phone),
+      expiresInSeconds: 300,
+      provider: "MockSmsGateway",
+      devCode: MOCK_SMS_SHOW_CODE ? code : null
+    };
+  },
+
+  async saveLearningProgress(progress = createProgressPayload()) {
+    await delay();
+    const serverStore = JSON.parse(localStorage.getItem(SERVER_PROGRESS_KEY) || "{}");
+    serverStore[progress.userId] = progress;
+    localStorage.setItem(SERVER_PROGRESS_KEY, JSON.stringify(serverStore));
+    state.lastServerSyncAt = progress.updatedAt;
+    saveState();
+    return { ok: true, savedAt: progress.updatedAt, progress };
+  }
+};
+
+async function saveLearningProgressToServer() {
+  return learningApi.saveLearningProgress(createProgressPayload());
 }
 
 function normalizePhone(phone = "") {
@@ -198,7 +274,21 @@ function renderAuth() {
   });
 }
 
+function renderVocabLoading(message = "正在通过 Fetch API 模拟从服务器获取 1000 条雅思词库……") {
+  document.querySelector("#vocab-stats").innerHTML = `
+    <div><strong>API</strong><span>词库来源</span></div>
+    <div><strong>1000</strong><span>请求条数</span></div>
+    <div><strong>${vocabularyLoadState}</strong><span>加载状态</span></div>
+  `;
+  document.querySelector("#vocab-list").innerHTML = `<article class="word-row"><p>${message}</p></article>`;
+}
+
 function renderVocab() {
+  if (vocabularyLoadState !== "ready") {
+    renderVocabLoading();
+    return;
+  }
+
   const stats = document.querySelector("#vocab-stats");
   const learned = state.learnedWords.filter((word) => ieltsWords.some((item) => item.word === word)).length;
   const total = ieltsWords.length;
@@ -239,6 +329,7 @@ function renderVocab() {
         ? state.learnedWords.filter((item) => item !== word)
         : [...state.learnedWords, word];
       saveState();
+      saveLearningProgressToServer().then(() => renderTodayReport()).catch(() => {});
       renderVocab();
       renderProgress();
       renderTodayReport();
@@ -381,7 +472,7 @@ function renderProgress() {
 function renderTodayReport() {
   const todaySummary = state.summaries[todayKey()] || "尚未填写今日总结。";
   const learned = state.learnedWords.filter((word) => ieltsWords.some((item) => item.word === word)).length;
-  const completion = Math.round((learned / ieltsWords.length) * 100);
+  const completion = ieltsWords.length === 0 ? 0 : Math.round((learned / ieltsWords.length) * 100);
   document.querySelector("#today-report").innerHTML = `
     <div><strong>${learned}/${ieltsWords.length}</strong><span>雅思词汇进度</span></div>
     <div><strong>${completion}%</strong><span>词汇完成率</span></div>
@@ -392,16 +483,28 @@ function renderTodayReport() {
 }
 
 function bindForms() {
-  document.querySelector("#send-code-button").addEventListener("click", () => {
+  document.querySelector("#send-code-button").addEventListener("click", async () => {
     const phone = normalizePhone(document.querySelector("#phone").value);
     if (!isValidPhone(phone)) {
       setAuthFeedback("请输入有效的中国大陆 11 位手机号。", "error");
       return;
     }
-    const code = generateCode();
-    state.pendingOtp = { phone, code, expiresAt: Date.now() + 5 * 60 * 1000 };
-    saveState();
-    setAuthFeedback(`验证码已发送（演示码：${code}），5 分钟内有效。`, "success");
+
+    const button = document.querySelector("#send-code-button");
+    button.disabled = true;
+    button.textContent = "发送中…";
+    setAuthFeedback("正在调用短信验证码接口，请稍候。", "info");
+
+    try {
+      const result = await learningApi.requestSmsCode(phone);
+      const inboxText = result.devCode ? ` 演示收件箱验证码：${result.devCode}` : " 请查看手机短信。";
+      setAuthFeedback(`验证码已发送至 ${result.maskedPhone}，${Math.round(result.expiresInSeconds / 60)} 分钟内有效。${inboxText}`, "success");
+    } catch {
+      setAuthFeedback("验证码发送失败，请稍后重试。", "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "获取验证码";
+    }
   });
 
   document.querySelector("#login-form").addEventListener("submit", (event) => {
@@ -447,17 +550,22 @@ function bindForms() {
       state.summaries = existingAccount.learningData.summaries || {};
       state.practiceCount = existingAccount.learningData.practiceCount || 0;
       state.businessPracticed = existingAccount.learningData.businessPracticed || [];
+      state.dailyGoal = existingAccount.learningData.dailyGoal || state.dailyGoal;
+      state.lastServerSyncAt = existingAccount.learningData.lastServerSyncAt || state.lastServerSyncAt;
     }
     account.learningData = {
       learnedWords: state.learnedWords,
       summaries: state.summaries,
       practiceCount: state.practiceCount,
-      businessPracticed: state.businessPracticed
+      businessPracticed: state.businessPracticed,
+      dailyGoal: state.dailyGoal,
+      lastServerSyncAt: state.lastServerSyncAt
     };
     state.accounts = { ...state.accounts, [phone]: account };
     state.user = { accountId: account.accountId, nickname: account.nickname, phone: account.phone };
     state.pendingOtp = null;
     saveState();
+    saveLearningProgressToServer().catch(() => {});
     event.currentTarget.reset();
     document.querySelector("#auth-dialog").close();
     renderAuth();
@@ -471,6 +579,7 @@ function bindForms() {
     event.preventDefault();
     state.dailyGoal = Number(document.querySelector("#daily-goal").value) || 8;
     saveState();
+    saveLearningProgressToServer().catch(() => {});
     document.querySelector("#goal-feedback").textContent = "今日背诵目标已保存。";
     renderVocab();
     renderProgress();
@@ -485,7 +594,13 @@ function bindForms() {
     }
     state.summaries[todayKey()] = text;
     saveState();
-    document.querySelector("#summary-feedback").textContent = "今日总结已保存。";
+    saveLearningProgressToServer()
+      .then((result) => {
+        document.querySelector("#summary-feedback").textContent = `今日总结已保存，并同步到服务器（${new Date(result.savedAt).toLocaleTimeString("zh-CN")}）。`;
+      })
+      .catch(() => {
+        document.querySelector("#summary-feedback").textContent = "今日总结已保存在本机，服务器同步稍后重试。";
+      });
     renderProgress();
     renderTodayReport();
   });
@@ -498,15 +613,32 @@ function bindForms() {
   });
 }
 
-function init() {
+async function loadIeltsVocabulary() {
+  vocabularyLoadState = "loading";
+  renderVocabLoading();
+  try {
+    ieltsWords = await learningApi.fetchIeltsVocabulary();
+    vocabularyLoadState = "ready";
+  } catch {
+    const fallback = await import("./data/ielts-vocabulary.js");
+    ieltsWords = (fallback.ieltsWords || []).slice(0, VOCABULARY_LIMIT);
+    vocabularyLoadState = "ready";
+  }
+  renderVocab();
+  renderProgress();
+  renderTodayReport();
+}
+
+async function init() {
   document.querySelector("#daily-goal").value = state.dailyGoal;
   renderAuth();
-  renderVocab();
+  renderVocabLoading();
   renderScenarios();
   renderReadingSources();
   renderProgress();
   renderTodayReport();
   bindForms();
+  await loadIeltsVocabulary();
 }
 
 init();
