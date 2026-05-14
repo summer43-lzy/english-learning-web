@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 
-const requiredFiles = ["index.html", "styles.css", "app.js"];
+const requiredFiles = ["index.html", "styles.css", "app.js", "data/ielts-vocabulary.js", "data/business-scenarios.js"];
 const requiredText = [
-  "账号登录",
+  "账号管理",
   "雅思词汇",
   "今日学习",
   "学习总结",
@@ -21,7 +21,9 @@ for (const file of requiredFiles) {
 
 const html = await readFile("index.html", "utf8");
 const app = await readFile("app.js", "utf8");
-const combined = `${html}\n${app}`;
+const ieltsData = await readFile("data/ielts-vocabulary.js", "utf8");
+const businessData = await readFile("data/business-scenarios.js", "utf8");
+const combined = `${html}\n${app}\n${ieltsData}\n${businessData}`;
 const missing = requiredText.filter((text) => !combined.includes(text));
 
 if (missing.length > 0) {

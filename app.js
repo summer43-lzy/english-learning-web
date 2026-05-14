@@ -1,30 +1,13 @@
-const STORAGE_KEY = "lingualift-state-v1";
+import { ieltsWords } from "./data/ielts-vocabulary.js";
+import { businessScenarios } from "./data/business-scenarios.js";
 
-const ieltsWords = [
-  { word: "allocate", ipa: "/ˈæləkeɪt/", meaning: "分配；拨出", tag: "写作任务 2", example: "The city should allocate more funding to public transport." },
-  { word: "beneficial", ipa: "/ˌbenɪˈfɪʃl/", meaning: "有益的", tag: "口语 Part 3", example: "Regular exercise is beneficial for both physical and mental health." },
-  { word: "coherent", ipa: "/kəʊˈhɪərənt/", meaning: "连贯的；一致的", tag: "写作结构", example: "A coherent essay has clear topic sentences and logical transitions." },
-  { word: "diverse", ipa: "/daɪˈvɜːs/", meaning: "多样的", tag: "教育话题", example: "A diverse classroom helps students understand different cultures." },
-  { word: "efficient", ipa: "/ɪˈfɪʃnt/", meaning: "高效的", tag: "科技话题", example: "Online booking makes the process more efficient for passengers." },
-  { word: "evidence", ipa: "/ˈevɪdəns/", meaning: "证据", tag: "学术论证", example: "The report provides evidence that air quality has improved." },
-  { word: "implement", ipa: "/ˈɪmplɪment/", meaning: "实施；执行", tag: "政策话题", example: "Governments can implement stricter rules to reduce waste." },
-  { word: "significant", ipa: "/sɪɡˈnɪfɪkənt/", meaning: "显著的；重要的", tag: "图表描述", example: "There was a significant increase in online sales after 2020." },
-  { word: "sustainable", ipa: "/səˈsteɪnəbl/", meaning: "可持续的", tag: "环境话题", example: "Many cities are investing in sustainable energy solutions." },
-  { word: "valid", ipa: "/ˈvælɪd/", meaning: "有效的；合理的", tag: "观点论证", example: "That is a valid point, but it needs stronger supporting examples." }
-];
+const STORAGE_KEY = "lingualift-state-v1";
 
 const dailyScenarios = [
   { title: "点餐", level: "Beginner", goal: "礼貌下单、选择冷热、提出少糖等偏好。", lines: ["Could I have a latte, please?", "Would you like it hot or iced?", "Iced, please. Could you make it less sweet?"] },
   { title: "问路", level: "Beginner", goal: "询问路线、理解方向、确认步行距离。", lines: ["Excuse me, how can I get to the subway station?", "Go straight for two blocks and turn left.", "Is it within walking distance?"] },
   { title: "看医生", level: "Intermediate", goal: "描述症状、说明持续时间、回答医生追问。", lines: ["I have had a sore throat since yesterday.", "Do you have a fever or a cough?", "A mild cough, but no fever."] },
   { title: "租房", level: "Intermediate", goal: "确认家具、费用范围和看房时间。", lines: ["Is the apartment furnished?", "The rent includes water, but electricity is separate.", "Could I schedule a viewing this weekend?"] }
-];
-
-const businessScenarios = [
-  { title: "开会", level: "Beginner", goal: "主持开场、推进议程、请求项目更新。", lines: ["Thanks for joining today's meeting.", "Let's start with a quick project update.", "Could you share the latest timeline?"] },
-  { title: "邮件跟进", level: "Intermediate", goal: "说明来信目的、礼貌催进展、等待反馈。", lines: ["I am writing to follow up on our proposal.", "Please let me know if you have any questions.", "We look forward to your feedback."] },
-  { title: "客户确认", level: "Intermediate", goal: "澄清优先级、承诺交付、约定复盘时间。", lines: ["Could you clarify your main priority for this quarter?", "Our team can prepare two options by Friday.", "That sounds reasonable. Let's review them next week."] },
-  { title: "商务谈判", level: "Intermediate", goal: "讨论折扣、表达预算压力、提出可行让步。", lines: ["We can offer a discount for a longer contract.", "The price is still above our budget.", "If we adjust the scope, we may find a workable solution."] }
 ];
 
 const readingSources = [
@@ -108,10 +91,13 @@ const readingSources = [
 
 const defaultState = {
   user: null,
+  accounts: {},
+  pendingOtp: null,
   learnedWords: [],
   practiceCount: 0,
   dailyGoal: 8,
-  summaries: {}
+  summaries: {},
+  businessPracticed: []
 };
 
 let state = loadState();
@@ -127,7 +113,44 @@ function loadState() {
 }
 
 function saveState() {
+  if (state.user && state.accounts?.[state.user.phone]) {
+    state.accounts[state.user.phone].learningData = {
+      learnedWords: state.learnedWords,
+      summaries: state.summaries,
+      practiceCount: state.practiceCount,
+      businessPracticed: state.businessPracticed
+    };
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function normalizePhone(phone = "") {
+  return String(phone).replace(/\D/g, "");
+}
+
+function isValidPhone(phone) {
+  return /^1[3-9]\d{9}$/.test(phone);
+}
+
+function generateCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function generateAccountId(phone) {
+  const suffix = phone.slice(-4);
+  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `LL-${new Date().getFullYear()}-${suffix}-${randomPart}`;
+}
+
+function setAuthFeedback(message, type = "info") {
+  const feedback = document.querySelector("#auth-feedback");
+  if (!feedback) return;
+  feedback.textContent = message;
+  feedback.dataset.type = type;
+}
+
+function accountCount() {
+  return Object.keys(state.accounts || {}).length;
 }
 
 function todayKey() {
@@ -157,12 +180,15 @@ function speak(text) {
 function renderAuth() {
   const panel = document.querySelector("#auth-panel");
   if (!state.user) {
-    panel.innerHTML = '<button class="button small" id="login-button" type="button">登录</button>';
+    panel.innerHTML = `
+      <span class="account-count">${accountCount()} 个本机账号</span>
+      <button class="button small" id="login-button" type="button">注册 / 登录</button>
+    `;
     document.querySelector("#login-button").addEventListener("click", () => document.querySelector("#auth-dialog").showModal());
     return;
   }
   panel.innerHTML = `
-    <span class="user-pill">Hi, ${state.user.name}</span>
+    <span class="user-pill" title="账号ID：${state.user.accountId}">Hi, ${state.user.nickname}</span>
     <button class="button small ghost" id="logout-button" type="button">登出</button>
   `;
   document.querySelector("#logout-button").addEventListener("click", () => {
@@ -229,21 +255,43 @@ function scenarioRow(item) {
   return `
     <article class="scenario-row">
       <div>
-        <span class="scenario-level">${item.level}</span>
+        <span class="scenario-level">${item.category || item.level}</span>
         <h4>${item.title}</h4>
+        <small>${item.level}</small>
       </div>
       <p class="scenario-goal">${item.goal}</p>
       <ol class="scenario-lines">${item.lines.map((line) => `<li>${line}</li>`).join("")}</ol>
-      <button class="button primary full scenario-action" data-scenario="${sentence}" type="button">播放跟读</button>
+      <button class="button primary full scenario-action" data-scenario="${sentence}" data-business-title="${item.category ? item.title : ""}" type="button">播放跟读</button>
     </article>
+  `;
+}
+
+function businessStatsMarkup() {
+  const practiced = (state.businessPracticed || []).filter((title) => businessScenarios.some((item) => item.title === title)).length;
+  const categories = new Set(businessScenarios.map((item) => item.category)).size;
+  const completion = businessScenarios.length === 0 ? 0 : Math.round((practiced / businessScenarios.length) * 100);
+  return `
+    <div class="stats business-stats">
+      <div><strong>${businessScenarios.length}</strong><span>商务场景总量</span></div>
+      <div><strong>${categories}</strong><span>职场类别</span></div>
+      <div><strong>${practiced}</strong><span>已跟读场景</span></div>
+      <div><strong>${completion}%</strong><span>练习完成率</span></div>
+    </div>
   `;
 }
 
 function renderScenarios() {
   document.querySelector("#daily-scenarios").innerHTML = dailyScenarios.map(scenarioRow).join("");
-  document.querySelector("#business-scenarios").innerHTML = businessScenarios.map(scenarioRow).join("");
+  document.querySelector("#business-scenarios").innerHTML = `${businessStatsMarkup()}${businessScenarios.map(scenarioRow).join("")}`;
   document.querySelectorAll("[data-scenario]").forEach((button) => {
-    button.addEventListener("click", () => speak(button.dataset.scenario));
+    button.addEventListener("click", () => {
+      state.businessPracticed = state.businessPracticed || [];
+      if (button.dataset.businessTitle && !state.businessPracticed.includes(button.dataset.businessTitle)) {
+        state.businessPracticed = [...state.businessPracticed, button.dataset.businessTitle];
+      }
+      speak(button.dataset.scenario);
+      renderScenarios();
+    });
   });
 }
 
@@ -344,13 +392,79 @@ function renderTodayReport() {
 }
 
 function bindForms() {
+  document.querySelector("#send-code-button").addEventListener("click", () => {
+    const phone = normalizePhone(document.querySelector("#phone").value);
+    if (!isValidPhone(phone)) {
+      setAuthFeedback("请输入有效的中国大陆 11 位手机号。", "error");
+      return;
+    }
+    const code = generateCode();
+    state.pendingOtp = { phone, code, expiresAt: Date.now() + 5 * 60 * 1000 };
+    saveState();
+    setAuthFeedback(`验证码已发送（演示码：${code}），5 分钟内有效。`, "success");
+  });
+
   document.querySelector("#login-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    state.user = { name: form.get("username"), email: form.get("email") };
+    const mode = form.get("auth-mode");
+    const nickname = String(form.get("nickname") || "").trim();
+    const phone = normalizePhone(form.get("phone"));
+    const code = String(form.get("sms-code") || "").trim();
+    const existingAccount = state.accounts[phone];
+
+    if (!nickname) {
+      setAuthFeedback("请先设置昵称。", "error");
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      setAuthFeedback("请输入有效的中国大陆 11 位手机号。", "error");
+      return;
+    }
+    if (!state.pendingOtp || state.pendingOtp.phone !== phone || state.pendingOtp.code !== code || state.pendingOtp.expiresAt < Date.now()) {
+      setAuthFeedback("验证码不正确或已过期，请重新获取。", "error");
+      return;
+    }
+    if (mode === "register" && existingAccount) {
+      setAuthFeedback("该手机号已注册，请切换到登录。", "error");
+      return;
+    }
+    if (mode === "login" && !existingAccount) {
+      setAuthFeedback("该手机号尚未注册，请先注册。", "error");
+      return;
+    }
+
+    const account = existingAccount || {
+      accountId: generateAccountId(phone),
+      phone,
+      createdAt: new Date().toISOString(),
+      learningData: { learnedWords: [], summaries: {}, practiceCount: 0, businessPracticed: [] }
+    };
+    account.nickname = nickname;
+    account.lastLoginAt = new Date().toISOString();
+    if (existingAccount?.learningData) {
+      state.learnedWords = existingAccount.learningData.learnedWords || [];
+      state.summaries = existingAccount.learningData.summaries || {};
+      state.practiceCount = existingAccount.learningData.practiceCount || 0;
+      state.businessPracticed = existingAccount.learningData.businessPracticed || [];
+    }
+    account.learningData = {
+      learnedWords: state.learnedWords,
+      summaries: state.summaries,
+      practiceCount: state.practiceCount,
+      businessPracticed: state.businessPracticed
+    };
+    state.accounts = { ...state.accounts, [phone]: account };
+    state.user = { accountId: account.accountId, nickname: account.nickname, phone: account.phone };
+    state.pendingOtp = null;
     saveState();
+    event.currentTarget.reset();
     document.querySelector("#auth-dialog").close();
     renderAuth();
+    renderVocab();
+    renderScenarios();
+    renderProgress();
+    renderTodayReport();
   });
 
   document.querySelector("#daily-goal-form").addEventListener("submit", (event) => {

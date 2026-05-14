@@ -81,7 +81,7 @@
               <p class="eyebrow">IELTS Words</p>
               <h3 id="ielts-title">雅思词汇</h3>
               <p class="section-intro">
-                看释义、听发音、读例句并标记已学。顶部展示总量、已学量和完成率，方便规划学习节奏。
+                已接入本地完整高频雅思词库数据，支持看释义、听发音、读例句并标记已学；顶部展示总量、已学量和完成率，方便做真实进度统计。
               </p>
             </div>
             <form class="study-card reflection-form goal-card" id="daily-goal-form">
@@ -114,7 +114,7 @@
               <p class="eyebrow">Business Talk</p>
               <h3 id="business-title">商务对话</h3>
             </div>
-            <p>按职场任务整理会议、邮件、客户确认和谈判表达，便于直接套用到工作沟通。</p>
+            <p>按真实职场任务扩展商务对话库，并像雅思词汇一样统计场景总量、类别、已练习量和完成率。</p>
           </div>
           <div class="scenario-board" id="business-scenarios"></div>
         </section>
@@ -135,13 +135,23 @@
     <dialog class="auth-dialog" id="auth-dialog">
       <form method="dialog" class="auth-form" id="login-form">
         <button class="icon-button" value="cancel" aria-label="关闭登录窗口">×</button>
-        <h2>账号登录</h2>
-        <p>当前版本使用浏览器本地存储模拟账号，便于快速体验学习记录。</p>
-        <label for="username">用户名</label>
-        <input id="username" name="username" autocomplete="username" required placeholder="例如：Alex" />
-        <label for="email">邮箱</label>
-        <input id="email" name="email" type="email" autocomplete="email" required placeholder="alex@example.com" />
-        <button class="button primary" type="submit">登录并同步本地记录</button>
+        <h2>账号管理</h2>
+        <p>注册或登录都会绑定手机号、校验 6 位验证码，并生成可追踪的账号 ID；演示版将账号与学习数据安全保存在本机浏览器。</p>
+        <div class="auth-tabs" role="tablist" aria-label="账号操作">
+          <label><input type="radio" name="auth-mode" value="register" checked /> 注册</label>
+          <label><input type="radio" name="auth-mode" value="login" /> 登录</label>
+        </div>
+        <label for="nickname">昵称</label>
+        <input id="nickname" name="nickname" autocomplete="nickname" required placeholder="例如：Alex" />
+        <label for="phone">手机号</label>
+        <div class="inline-form nowrap">
+          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" required placeholder="例如：13800138000" />
+          <button class="button ghost" id="send-code-button" type="button">获取验证码</button>
+        </div>
+        <label for="sms-code">手机验证码</label>
+        <input id="sms-code" name="sms-code" inputmode="numeric" maxlength="6" required placeholder="输入 6 位验证码" />
+        <small class="auth-hint" id="auth-feedback">验证码 5 分钟内有效。静态演示环境会在本窗口显示测试验证码。</small>
+        <button class="button primary" type="submit">完成账号校验</button>
       </form>
     </dialog>
 
